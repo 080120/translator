@@ -1,0 +1,11 @@
+language: generic
+
+services:
+    - docker
+
+before_script:
+    - docker pull jmadler/python-future-builder:latest
+
+script:
+  - ./build.sh
+  - ./lint.sh
