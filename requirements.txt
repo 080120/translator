@@ -2,3 +2,4 @@ fastapi
 uvicorn
 deep-translator
 python-multipart
+yt-dlp
