@@ -1,10 +1,12 @@
 import sys
 import whisper
 from deep_translator import GoogleTranslator
+import os
+import json
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python subtitle_generator.py <video_path> [lang]")
+        print(json.dumps({"error": "Usage: python subtitle_generator.py <video_path> [lang]"}))
         return
     
     video_path = sys.argv[1]   
@@ -12,10 +14,14 @@ def main():
 
     # Tải model Whisper
     model = whisper.load_model("small")
-    result = model.transcribe(video_path, verbose=True)
+    result = model.transcribe(video_path, verbose=False)
 
     # Tạo file .srt cùng tên video
-    srt_path = video_path.rsplit(".", 1)[0] + f"_{lang}.srt"
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    srt_filename = f"{base_name}_{lang}.srt"
+    srt_path = os.path.join("subs", srt_filename)   # để gọn vào thư mục subs
+
+    os.makedirs("subs", exist_ok=True)
 
     with open(srt_path, "w", encoding="utf-8") as f:
         for i, segment in enumerate(result["segments"], start=1):
@@ -32,7 +38,12 @@ def main():
             f.write(text.strip() + "\n")         # Lời gốc
             f.write(translated.strip() + "\n\n") # Lời dịch
 
-    print(f"Subtitles saved to: {srt_path}")
+    # --- trả JSON để Unity nhận ---
+    response = {
+        "srt_url": f"/{srt_path}",   # ví dụ: /subs/shin_vi.srt
+        "video_url": f"/videos/{os.path.basename(video_path)}"
+    }
+    print(json.dumps(response, ensure_ascii=False))
 
 def format_time(seconds: float) -> str:
     """Chuyển giây thành định dạng SRT: hh:mm:ss,ms"""
