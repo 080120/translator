@@ -1,15 +1,16 @@
 from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 from deep_translator import GoogleTranslator
+from faster_whisper import WhisperModel
 import uuid
 import os
 import subprocess
-import whisper
 
 app = FastAPI()
 
 OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 
 @app.get("/")
 def home():
@@ -82,29 +83,27 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 
 
 # =======================
-# 2. Xử lý file upload (dùng Whisper thay autosub)
+# 2. Xử lý file upload (dùng faster-whisper)
 # =======================
 @app.post("/upload")
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
-    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")    
-    out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")  # ✔ thụt đúng
+    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")        
+    out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     # Lưu file upload
     with open(input_path, "wb") as f:
         f.write(file.file.read())
 
     try:
-        # load model whisper nhỏ để tiết kiệm tài nguyên
-        model = whisper.load_model("base")  
-        result = model.transcribe(input_path, task="translate")  # dịch trực tiếp sang EN
+        # load model nhỏ để tiết kiệm RAM
+        model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        segments, _ = model.transcribe(input_path)
 
         # Lưu ra SRT
         with open(out_srt, "w", encoding="utf-8") as f:
-            for i, seg in enumerate(result["segments"], start=1):
-                start = seg["start"]
-                end = seg["end"]
-                text = seg["text"]
+            for i, seg in enumerate(segments, start=1):
+                start, end, text = seg.start, seg.end, seg.text.strip()
 
                 # dịch sang target_lang nếu không phải EN
                 if target_lang != "en":

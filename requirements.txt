@@ -1,7 +1,6 @@
 fastapi
-uvicorn
+uvicorn[standard]
 deep-translator
-python-multipart
 yt-dlp
-openai-whisper==20231117
+faster-whisper
 ffmpeg-python
