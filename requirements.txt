@@ -4,3 +4,4 @@ deep-translator
 yt-dlp
 faster-whisper
 ffmpeg-python
+python-multipart
