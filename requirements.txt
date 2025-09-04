@@ -3,3 +3,5 @@ uvicorn
 deep-translator
 python-multipart
 yt-dlp
+openai-whisper==20231117
+ffmpeg-python
