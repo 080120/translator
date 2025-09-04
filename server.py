@@ -4,6 +4,7 @@ from deep_translator import GoogleTranslator
 import uuid
 import os
 import subprocess
+import whisper
 
 app = FastAPI()
 
@@ -13,6 +14,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 @app.get("/")
 def home():
     return {"message": "Hello, FastAPI on Render 🚀"}
+
 
 @app.get("/translate")
 def translate(text: str, target: str = "vi"):
@@ -45,7 +47,6 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
                 status_code=400
             )
 
-        # tìm file phụ đề tải về
         downloaded_vtt = None
         for f in os.listdir(OUTPUT_DIR):
             if f.startswith(req_id) and f.endswith(".vtt"):
@@ -81,34 +82,54 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 
 
 # =======================
-# 2. Xử lý file upload
+# 2. Xử lý file upload (dùng Whisper thay autosub)
 # =======================
 @app.post("/upload")
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
-    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")
-    out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
+    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     # Lưu file upload
     with open(input_path, "wb") as f:
         f.write(file.file.read())
 
     try:
-        # dùng autosub để tạo subtitle từ audio/video
-        # cài autosub trước: pip install autosub
-        cmd = ["autosub", input_path, "-o", out_srt, "-S", "en", "-D", target_lang]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # load model whisper nhỏ để tiết kiệm tài nguyên
+        model = whisper.load_model("base")  
+        result = model.transcribe(input_path, task="translate")  # dịch trực tiếp sang EN
 
-        if result.returncode != 0:
-            return JSONResponse(
-                {"error": "Không tạo được phụ đề từ video", "detail": result.stderr},
-                status_code=400
-            )
+        # Lưu ra SRT
+        with open(out_srt, "w", encoding="utf-8") as f:
+            for i, seg in enumerate(result["segments"], start=1):
+                start = seg["start"]
+                end = seg["end"]
+                text = seg["text"]
+
+                # dịch sang target_lang nếu không phải EN
+                if target_lang != "en":
+                    try:
+                        text = GoogleTranslator(source="auto", target=target_lang).translate(text)
+                    except Exception:
+                        pass
+
+                f.write(f"{i}\n")
+                f.write(f"{format_time(start)} --> {format_time(end)}\n")
+                f.write(text + "\n\n")
 
         return {"srt_url": f"/download/{os.path.basename(out_srt)}"}
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+def format_time(seconds: float) -> str:
+    """Chuyển float giây -> format SRT"""
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds - int(seconds)) * 1000)
+    return f"{h:02}:{m:02}:{s:02},{ms:03}"
+
 
 @app.get("/download/{filename}")
 def download_file(filename: str):
