@@ -87,8 +87,8 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 @app.post("/upload")
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
-    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")
-     out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
+    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")    
+    out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")  # ✔ thụt đúng
 
     # Lưu file upload
     with open(input_path, "wb") as f:
