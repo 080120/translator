@@ -87,7 +87,7 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
     input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")
-out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
+    out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     # Lưu file upload
     with open(input_path, "wb") as f:
@@ -109,7 +109,6 @@ out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-
 
 @app.get("/download/{filename}")
 def download_file(filename: str):
