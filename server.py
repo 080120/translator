@@ -50,7 +50,8 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 
         downloaded_vtt = None
         for f in os.listdir(OUTPUT_DIR):
-            if f.startswith(req_id) and f.endswith(".vtt"):
+            if f.startswith(req_id) and (f.endswith(".mp4") or                                 
+        f.endswith(".mkv") or f.endswith(".webm")):
                 downloaded_vtt = os.path.join(OUTPUT_DIR, f)
                 break
 
@@ -88,8 +89,9 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 @app.post("/upload")
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
-    video_filename = f"{req_id}_{file.filename}"
-    input_path = os.path.join(OUTPUT_DIR, video_filename)        
+    safe_name = safe_filename(file.filename)  # ✅ đổi tên an toàn
+    video_filename = f"{req_id}_{safe_name}"
+    input_path = os.path.join(OUTPUT_DIR, video_filename)
     out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     # Lưu file upload
@@ -132,6 +134,13 @@ def format_time(seconds: float) -> str:
     s = int(seconds % 60)
     ms = int((seconds - int(seconds)) * 1000)
     return f"{h:02}:{m:02}:{s:02},{ms:03}"
+
+import re
+
+def safe_filename(name: str) -> str:
+    """Loại bỏ ký tự đặc biệt, thay khoảng trắng bằng _"""
+    name = re.sub(r"[^\w\d-]", "_", name)
+    return name
 
 
 @app.get("/download/{filename}")
