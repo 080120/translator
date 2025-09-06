@@ -88,7 +88,8 @@ def process(youtube_url: str = Form(...), target_lang: str = Form("vi")):
 @app.post("/upload")
 def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
     req_id = str(uuid.uuid4())[:8]
-    input_path = os.path.join(OUTPUT_DIR, f"{req_id}_{file.filename}")        
+    video_filename = f"{req_id}_{file.filename}"
+    input_path = os.path.join(OUTPUT_DIR, video_filename)        
     out_srt = os.path.join(OUTPUT_DIR, f"subs_{req_id}.srt")
 
     # Lưu file upload
@@ -105,7 +106,6 @@ def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
             for i, seg in enumerate(segments, start=1):
                 start, end, text = seg.start, seg.end, seg.text.strip()
 
-                # dịch sang target_lang nếu không phải EN
                 if target_lang != "en":
                     try:
                         text = GoogleTranslator(source="auto", target=target_lang).translate(text)
@@ -116,11 +116,14 @@ def upload(file: UploadFile = File(...), target_lang: str = Form("vi")):
                 f.write(f"{format_time(start)} --> {format_time(end)}\n")
                 f.write(text + "\n\n")
 
-        return {"srt_url": f"/download/{os.path.basename(out_srt)}"}
+        # 🔥 Trả cả SRT và video
+        return {
+            "srt_url": f"/download/{os.path.basename(out_srt)}",
+            "video_url": f"/download/{os.path.basename(video_filename)}"
+        }
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-
 
 def format_time(seconds: float) -> str:
     """Chuyển float giây -> format SRT"""
@@ -135,5 +138,12 @@ def format_time(seconds: float) -> str:
 def download_file(filename: str):
     file_path = os.path.join(OUTPUT_DIR, filename)
     if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="application/x-subrip", filename=filename)
+        # Đoán mime type
+        if filename.endswith(".srt"):
+            media_type = "application/x-subrip"
+        elif filename.endswith(".mp4"):
+            media_type = "video/mp4"
+        else:
+            media_type = "application/octet-stream"
+        return FileResponse(file_path, media_type=media_type, filename=filename)
     return JSONResponse(content={"error": "File not found"}, status_code=404)
